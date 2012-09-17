@@ -44,7 +44,7 @@ public class BonusChest extends JavaPlugin implements Listener {
         getLogger().log(Level.INFO, getDescription().getName() + " " + getDescription().getVersion() + " disabled.");
     }
 
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerInteract(final PlayerInteractEvent event) {
         final IEssentials ess = (IEssentials)getServer().getPluginManager().getPlugin("Essentials");
         if (ess == null || !ess.isEnabled()) {
@@ -87,25 +87,21 @@ public class BonusChest extends JavaPlugin implements Listener {
                     if (!csign.getLine(1).equalsIgnoreCase(config.KIT_NAME)) {
                         return;
                     }
-                    if (user.checkSignThrottle()) {
-                        return;
-                    }
+                    // if (user.checkSignThrottle()) {
+                    //     return;
+                    // }
                     if (!user.isAuthorized("essentials.kit." + config.KIT_NAME)) {
                         event.getPlayer().sendMessage(config.REJECT_MESSAGE);
+                        event.setCancelled(true);
                         return;
                     }
                     final Plugin bPermPlugin = getServer().getPluginManager().getPlugin("bPermissions");
                     if (bPermPlugin != null && bPermPlugin.isEnabled()) {
                         getServer().broadcastMessage(String.format(config.ANNOUNCE_MESSAGE, event.getPlayer().getDisplayName()));
-                        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-                                public void run() {
-                                    getLogger().log(Level.INFO, "Adding ^essentials.kit." + config.KIT_NAME + " for player " + event.getPlayer().getName());
-                                    ApiLayer.addPermission(event.getPlayer().getWorld().getName(),
-                                                           CalculableType.USER,
-                                                           event.getPlayer().getName(),
-                                                           Permission.loadFromString("^essentials.kit." + config.KIT_NAME));
-                                }
-                            }, 0);
+                        ApiLayer.addPermission(event.getPlayer().getWorld().getName(),
+                                               CalculableType.USER,
+                                               event.getPlayer().getName(),
+                                               Permission.loadFromString("^essentials.kit." + config.KIT_NAME));
                     } else {
                         getLogger().log(Level.SEVERE, "bPermissions not found!");
                         event.setCancelled(true);
