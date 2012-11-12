@@ -14,10 +14,12 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.block.Action;
-import com.earth2me.essentials.IEssentials;
-import com.earth2me.essentials.User;
-import com.earth2me.essentials.signs.EssentialsSign;
-import static com.earth2me.essentials.signs.EssentialsSign.*;
+import net.ess3.api.IUser;
+import net.ess3.api.IEssentials;
+import net.ess3.api.IPlugin;
+import net.ess3.signs.EssentialsSign;
+import net.ess3.signs.ISignsPlugin;
+import static net.ess3.signs.EssentialsSign.*;
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
 import de.bananaco.bpermissions.api.util.Permission;
@@ -46,11 +48,13 @@ public class BonusChest extends JavaPlugin implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerInteract(final PlayerInteractEvent event) {
-        final IEssentials ess = (IEssentials)getServer().getPluginManager().getPlugin("Essentials");
-        if (ess == null || !ess.isEnabled()) {
+        final IPlugin plugin = (IPlugin)getServer().getPluginManager().getPlugin("Essentials-3");
+        final IEssentials ess = (IEssentials)plugin.getEssentials();
+        final ISignsPlugin esss = (ISignsPlugin)getServer().getPluginManager().getPlugin("EssentialsSigns");
+        if (ess == null || esss == null) {
             return;
         }
-        if (ess.getSettings().areSignsDisabled() || (event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_AIR)) {
+        if (esss.getSettings().areSignsDisabled() || (event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_AIR)) {
             return;
         }
         final Block block;
@@ -59,9 +63,6 @@ public class BonusChest extends JavaPlugin implements Listener {
             try {
                 targetBlock = event.getPlayer().getTargetBlock(null, 5);
             } catch (IllegalStateException ex) {
-                if (ess.getSettings().isDebug()) {
-                    ess.getLogger().log(Level.WARNING, ex.getMessage(), ex);
-                }
             }
             block = targetBlock;
         } else {
@@ -73,12 +74,15 @@ public class BonusChest extends JavaPlugin implements Listener {
         final int mat = block.getTypeId();
         if (mat == Material.SIGN_POST.getId() || mat == Material.WALL_SIGN.getId()) {
             final Sign csign = (Sign)block.getState();
-            for (EssentialsSign sign : ess.getSettings().enabledSigns()) {
+            for (EssentialsSign sign : esss.getSettings().getEnabledSigns()) {
                 if (csign.getLine(0).equalsIgnoreCase(sign.getSuccessName())) {
                     //sign.onSignInteract(block, event.getPlayer(), ess);
                     final String signName = sign.getSuccessName();
-                    final User user = ess.getUser(event.getPlayer());
-                    if (!user.isAuthorized("essentials.signs.use.kit")) {
+                    final IUser user = ess.getUserMap().getUser(event.getPlayer());
+                    if (!ApiLayer.hasPermission(event.getPlayer().getWorld().getName(),
+                                                CalculableType.USER,
+                                                event.getPlayer().getName(),
+                                                "essentials.signs.use.kit")) {
                         return;
                     }
                     if (!signName.toLowerCase(Locale.ENGLISH).equals("§1[kit]")) {
@@ -90,7 +94,10 @@ public class BonusChest extends JavaPlugin implements Listener {
                     // if (user.checkSignThrottle()) {
                     //     return;
                     // }
-                    if (!user.isAuthorized("essentials.kit." + config.KIT_NAME)) {
+                    if (!ApiLayer.hasPermission(event.getPlayer().getWorld().getName(),
+                                                CalculableType.USER,
+                                                event.getPlayer().getName(),
+                                                "essentials.kit." + config.KIT_NAME)) {
                         event.getPlayer().sendMessage(config.REJECT_MESSAGE);
                         event.setCancelled(true);
                         return;
