@@ -1,29 +1,17 @@
 package at.junction.bonuschest;
 
-import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 
 public class Configuration {
-
-    private final BonusChest plugin;
 
     public static String KIT_NAME;
     public static String REJECT_MESSAGE;
     public static String ANNOUNCE_MESSAGE;
 
-    public Configuration(BonusChest plugin) {
-        this.plugin = plugin;
-    }
-
-    public void save()
+    public void load(final BonusChest plugin)
     {
-        plugin.saveConfig();
-    }
-
-    public void load()
-    {
-        plugin.reloadConfig();
-        ConfigurationSection config = plugin.getConfig();
-        KIT_NAME = config.getString("kit_name");
+        final FileConfiguration config = plugin.getConfig();
+        config.options().copyDefaults(true);
         REJECT_MESSAGE = config.getString("reject_message");
         ANNOUNCE_MESSAGE = config.getString("announce_message");
     }

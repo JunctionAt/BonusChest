@@ -1,152 +1,115 @@
 package at.junction.bonuschest;
 
-import java.io.File;
 import java.util.logging.Level;
 import java.util.Locale;
+import java.util.Random;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.event.Listener;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.block.Action;
-import net.ess3.api.IUser;
-import net.ess3.api.IEssentials;
-import net.ess3.api.IPlugin;
-import net.ess3.signs.EssentialsSign;
-import net.ess3.signs.ISignsPlugin;
-import static net.ess3.signs.EssentialsSign.*;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.event.*;
+import org.bukkit.event.player.*;
+import org.bukkit.event.block.*;
+import org.bukkit.inventory.*;
+import org.bukkit.ChatColor;
+import net.minecraft.server.StructurePieceTreasure;
+import net.minecraft.server.WeightedRandom;
+import net.minecraft.server.TileEntityChest;
+import net.minecraft.server.ItemStack;
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
 import de.bananaco.bpermissions.api.util.Permission;
 
 public class BonusChest extends JavaPlugin implements Listener {
 
-    public final Configuration config = new Configuration(this);
-    
+    public final Configuration config = new Configuration();
+
+    private static final StructurePieceTreasure[] goods = new StructurePieceTreasure[] {
+        new StructurePieceTreasure(Material.STICK.getId(), 0, 1, 3, 10),
+        new StructurePieceTreasure(Material.WOOD.getId(), 0, 1, 3, 10),
+        new StructurePieceTreasure(Material.LOG.getId(), 0, 1, 3, 10),
+        new StructurePieceTreasure(Material.STONE_AXE.getId(), 0, 1, 1, 3),
+        new StructurePieceTreasure(Material.WOOD_AXE.getId(), 0, 1, 1, 5),
+        new StructurePieceTreasure(Material.STONE_PICKAXE.getId(), 0, 1, 1, 3),
+        new StructurePieceTreasure(Material.WOOD_PICKAXE.getId(), 0, 1, 1, 5),
+        new StructurePieceTreasure(Material.APPLE.getId(), 0, 2, 3, 5),
+        new StructurePieceTreasure(Material.BREAD.getId(), 0, 2, 3, 3)
+    };
+
     @Override
     public void onEnable() {
-        File configFile = new File(getDataFolder(), "config.yml");
-        if (!configFile.exists()) {
-            getConfig().options().copyDefaults(true);
-            saveConfig();
-        }
-        config.load();
+        config.load(this);
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().log(Level.INFO, getDescription().getName() + " " + getDescription().getVersion() + " enabled.");
     }
     
     @Override
     public void onDisable() {
-        // tear down
         getLogger().log(Level.INFO, getDescription().getName() + " " + getDescription().getVersion() + " disabled.");
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler
+    public void onSignChangeEvent(final SignChangeEvent event) {
+        final Player p = event.getPlayer();
+        if (event.getLine(0).equals("[BonusChest]") &&
+            ApiLayer.hasPermission(event.getPlayer().getWorld().getName(),
+                                   CalculableType.USER,
+                                   event.getPlayer().getName(),
+                                   "bonuschest.set")) {
+            event.setLine(0, "§6[BonusChest]");
+        }
+    }
+
+    @EventHandler
     public void onPlayerInteract(final PlayerInteractEvent event) {
-        final IPlugin plugin = (IPlugin)getServer().getPluginManager().getPlugin("Essentials-3");
-        final IEssentials ess = (IEssentials)plugin.getEssentials();
-        final ISignsPlugin esss = (ISignsPlugin)getServer().getPluginManager().getPlugin("EssentialsSigns");
-        if (ess == null || esss == null) {
+        if (event.isCancelled()) {
             return;
         }
-        if (esss.getSettings().areSignsDisabled() || (event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_AIR)) {
-            return;
-        }
-        final Block block;
-        if (event.isCancelled() && event.getAction() == Action.RIGHT_CLICK_AIR) {
-            Block targetBlock = null;
-            try {
-                targetBlock = event.getPlayer().getTargetBlock(null, 5);
-            } catch (IllegalStateException ex) {
-            }
-            block = targetBlock;
-        } else {
-            block = event.getClickedBlock();
-        }
-        if (block == null) {
-            return;
-        }
+        final Block block = event.getClickedBlock();
         final int mat = block.getTypeId();
         if (mat == Material.SIGN_POST.getId() || mat == Material.WALL_SIGN.getId()) {
             final Sign csign = (Sign)block.getState();
-            for (EssentialsSign sign : esss.getSettings().getEnabledSigns()) {
-                if (csign.getLine(0).equalsIgnoreCase(sign.getSuccessName())) {
-                    //sign.onSignInteract(block, event.getPlayer(), ess);
-                    final String signName = sign.getSuccessName();
-                    final IUser user = ess.getUserMap().getUser(event.getPlayer());
+            if (csign.getLine(0).equalsIgnoreCase("§6[BonusChest]")) {
+                switch (event.getAction()) {
+                case LEFT_CLICK_BLOCK:
                     if (!ApiLayer.hasPermission(event.getPlayer().getWorld().getName(),
                                                 CalculableType.USER,
                                                 event.getPlayer().getName(),
-                                                "essentials.signs.use.kit")) {
-                        return;
+                                                "bonuschest.set")) {
+                        event.setCancelled(true);
                     }
-                    if (!signName.toLowerCase(Locale.ENGLISH).equals("§1[kit]")) {
-                        return;
-                    }
-                    if (!csign.getLine(1).equalsIgnoreCase(config.KIT_NAME)) {
-                        return;
-                    }
-                    // if (user.checkSignThrottle()) {
-                    //     return;
-                    // }
-                    if (!ApiLayer.hasPermission(event.getPlayer().getWorld().getName(),
-                                                CalculableType.USER,
-                                                event.getPlayer().getName(),
-                                                "essentials.kit." + config.KIT_NAME)) {
+                    return;
+                case RIGHT_CLICK_BLOCK:
+                    if (ApiLayer.hasPermission(event.getPlayer().getWorld().getName(),
+                                               CalculableType.USER,
+                                               event.getPlayer().getName(),
+                                               "bonuschest.used")) {
                         event.getPlayer().sendMessage(config.REJECT_MESSAGE);
                         event.setCancelled(true);
                         return;
                     }
-                    final Plugin bPermPlugin = getServer().getPluginManager().getPlugin("bPermissions");
-                    if (bPermPlugin != null && bPermPlugin.isEnabled()) {
-                        getServer().broadcastMessage(String.format(config.ANNOUNCE_MESSAGE, event.getPlayer().getDisplayName()));
-                        ApiLayer.addPermission(event.getPlayer().getWorld().getName(),
-                                               CalculableType.USER,
-                                               event.getPlayer().getName(),
-                                               Permission.loadFromString("^essentials.kit." + config.KIT_NAME));
-                    } else {
-                        getLogger().log(Level.SEVERE, "bPermissions not found!");
-                        event.setCancelled(true);
+                    final Inventory inventory = event.getPlayer().getInventory();
+                    final TileEntityChest chest = new TileEntityChest();
+                    StructurePieceTreasure.a(new Random(event.getPlayer().getWorld().getSeed()), goods, chest, 10);
+                    for (final ItemStack item : chest.getContents()) {
+                        if (item != null) {
+                            inventory.addItem(new org.bukkit.inventory.ItemStack(item.id, item.count));
+                        }
                     }
-                    return;
+                    inventory.addItem(new org.bukkit.inventory.ItemStack(Material.TORCH.getId(), 4));
+                    inventory.addItem(new org.bukkit.inventory.ItemStack(Material.CHEST.getId(), 1));
+                    event.getPlayer().updateInventory();
+                    getServer().broadcastMessage(String.format(ChatColor.translateAlternateColorCodes('&', config.ANNOUNCE_MESSAGE), event.getPlayer().getDisplayName()));
+                    ApiLayer.addPermission(event.getPlayer().getWorld().getName(),
+                                           CalculableType.USER,
+                                           event.getPlayer().getName(),
+                                           Permission.loadFromString("bonuschest.used"));
                 }
             }
-        }
-    }
-
-    static class BlockSign implements ISign {
-
-        private final transient Sign sign;
-        private final transient Block block;
-
-        public BlockSign(final Block block) {
-            this.block = block;
-            this.sign = (Sign)block.getState();
-        }
-
-        @Override
-        public final String getLine(final int index) {
-            return sign.getLine(index);
-        }
-
-        @Override
-        public final void setLine(final int index, final String text) {
-            sign.setLine(index, text);
-        }
-
-        @Override
-        public final Block getBlock() {
-            return block;
-        }
-
-        @Override
-        public final void updateSign() {
-            sign.update();
         }
     }
 

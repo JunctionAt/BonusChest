@@ -1,3 +1,2 @@
-kit_name: "starter"
-announce_message: "%s has taken the bonus loot!"
+announce_message: "&6%s has taken the bonus loot!"
 reject_message: "You have already taken your bonus loot for this map."
